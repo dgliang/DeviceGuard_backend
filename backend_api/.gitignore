@@ -1,0 +1,7 @@
+/__pycache__/
+/Log/
+/logs/
+/.idea/
+*.pyc
+.DS_Store
+/venv
