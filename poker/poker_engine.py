@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--pkg", required=True)
     parser.add_argument("--app", required=True)
     parser.add_argument("--config", default="config.ini")
+    parser.add_argument("--task_id", required=True)
 
     args = parser.parse_args()
 
@@ -36,21 +37,22 @@ def main():
 
         timeout = int(config_settings['dynamic_run_time']) + 120
 
-        # 给 run.py 写入配置
-        with open("run_config.txt", "w", encoding="utf8") as f:
+        # 给 run_task.py 写入配置
+        with open("run_config_task.txt", "w", encoding="utf8") as f:
             f.write(
                 f"{pkgName},{appName},"
                 f"{config_settings['dynamic_ui_depth']},"
                 f"{config_settings['dynamic_run_time']},"
                 f"{config_settings['searchprivacypolicy']},"
-                f"{config_settings['screenuidrep']}"
+                f"{config_settings['screenuidrep']},"
+                f"{args.task_id}"
             )
 
-        # 执行 run.py
+        # 执行 run_task.py
         if os_type == "win":
-            execute_cmd_with_timeout("python run.py", timeout)
+            execute_cmd_with_timeout("python run_task.py", timeout)
         else:
-            execute_cmd_with_timeout("python3 run.py", timeout)
+            execute_cmd_with_timeout("python3 run_task.py", timeout)
 
     except Exception as e:
         print(f"[ENGINE] ERROR: {e}")
@@ -63,5 +65,5 @@ def main():
 if __name__ == "__main__":
     main()
     '''
-    python poker_engine.py --pkg com.xxx --app "名字"
+    python poker_engine.py --pkg com.xxx --app "名字" --task_id 任务ID
     '''

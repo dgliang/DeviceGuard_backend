@@ -15,3 +15,4 @@ tmp.txt
 profile.stats
 /tests/utilsTest/OCRUtilsTest/collectData/
 *zip
+/.vscode/

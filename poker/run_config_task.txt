@@ -1,0 +1,1 @@
+com.xunmeng.pinduoduo,拼多多,12,3600,false,loc,3d6b2360-ad00-43a5-a13a-a362f2932b7a

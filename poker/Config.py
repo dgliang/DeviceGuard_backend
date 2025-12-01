@@ -73,6 +73,7 @@ class Config(object):
         self.UndefineDepth = 100000
         self.root_path = "collectData"
         self.start_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.task_id = None
 
 
 
@@ -118,6 +119,14 @@ class Config(object):
     def get_CollectDataName(self):
         return self.target_pkg_name + "-" + self.start_time
 
+    def set_task_id(self, task_id):
+        self.task_id = task_id
+
+    def get_task_id(self):
+        return self.task_id
+    
     def get_collectDataPath(self):
         pkg_path = self.target_pkg_name + "-" + self.start_time
+        if self.task_id:
+            return os.path.join(self.root_path, str(self.task_id), pkg_path)
         return os.path.join(self.root_path, pkg_path)

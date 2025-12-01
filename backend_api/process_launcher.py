@@ -29,6 +29,8 @@ def run_engine_process(task_id, pkg, app, tasks_dict):
             pkg,
             "--app",
             app,
+            "--task_id",
+            task_id
         ]
 
         cmd_str = ' '.join(cmd)
