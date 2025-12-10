@@ -5,14 +5,17 @@ import os
 from logger import TaskLogger, logger
 from pathlib import Path
 
-# ENGINE_PATH = "../poker/poker_engine.py"
+
 CURRENT_PATH = Path(__file__).parent.parent
 POKER_PATH = CURRENT_PATH / "poker"
-ENGINE_PATH = CURRENT_PATH / "poker" / "poker_engine.py"
+POKER_ENGINE_PATH = CURRENT_PATH / "poker" / "poker_engine.py"
+GKD_PATH = CURRENT_PATH / "gkd_subscription"
+GKD_ENGINE_PATH = CURRENT_PATH / "gkd_subscription" / "run_match_ele.py"
 PYTHON_EXEC = "python3" if sys.platform != "win32" else "python"
 
 
 def run_engine_process(task_id, pkg, app, tasks_dict):
+    """主入口函数：依次运行 Poker 和 GKD 任务"""
     # 更新任务状态
     tasks_dict[task_id]["status"] = "running"
     tasks_dict[task_id]["message"] = "Engine started"
@@ -22,9 +25,31 @@ def run_engine_process(task_id, pkg, app, tasks_dict):
     TaskLogger.task_started(task_id)
 
     try:
+        # 执行 Poker 任务
+        poker_success = run_poker_task(task_id, pkg, app, tasks_dict)
+        
+        # Poker 任务成功后，执行 GKD 任务
+        if poker_success and GKD_ENGINE_PATH and GKD_ENGINE_PATH.exists():
+            logger.info(f"Task {task_id} - Poker task completed, starting GKD task")
+            try:
+                run_gkd_task(task_id, pkg, app, tasks_dict)
+            except Exception as e:
+                logger.error(f"Task {task_id} - GKD task failed: {str(e)}")
+                TaskLogger.append_task_log(task_id, f"[GKD] Error: {str(e)}")
+                
+    except Exception as e:
+        error_text = str(e)
+        tasks_dict[task_id]["status"] = "failed"
+        tasks_dict[task_id]["message"] = error_text
+        TaskLogger.task_failed(task_id, error_text)
+
+
+def run_poker_task(task_id, pkg, app, tasks_dict):
+    """运行 Poker 引擎任务"""
+    try:
         cmd = [
             PYTHON_EXEC,
-            str(ENGINE_PATH),
+            str(POKER_ENGINE_PATH),
             "--pkg",
             pkg,
             "--app",
@@ -34,7 +59,8 @@ def run_engine_process(task_id, pkg, app, tasks_dict):
         ]
 
         cmd_str = ' '.join(cmd)
-        logger.info(f"Task {task_id} - Executing: {cmd_str}")
+        logger.info(f"Task {task_id} - Executing Poker: {cmd_str}")
+        
         # 创建任务日志文件
         log_path = TaskLogger.create_task_log_file(task_id, pkg, app, cmd_str)
         tasks_dict[task_id]["log_file"] = str(log_path)
@@ -46,57 +72,108 @@ def run_engine_process(task_id, pkg, app, tasks_dict):
                 cmd,
                 cwd=str(POKER_PATH),
                 stdout=log_file,
-                stderr=subprocess.STDOUT,  # 合并 stderr 到 stdout
+                stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1,  # 行缓冲，实时写入
+                bufsize=1,
             )
-
-        # # 进度模拟（未来可接入真实进度）
-        # total_steps = 10
-        # for i in range(total_steps):
-        #     # 子进程已退出则停止模拟进度
-        #     if proc.poll() is not None:
-        #         break
-
-        #     time.sleep(3)
-        #     progress = (i + 1) / total_steps
-        #     tasks_dict[task_id]["progress"] = progress
-        #     # 使用整数百分比记录日志
-        #     TaskLogger.task_progress(
-        #         task_id,
-        #         int(progress * 100),
-        #         message="Engine processing",
-        #     )
 
         stdout, stderr = proc.communicate()
 
         if proc.returncode == 0:
             tasks_dict[task_id]["status"] = "completed"
-            tasks_dict[task_id]["message"] = "Finished"
+            tasks_dict[task_id]["message"] = "Poker task finished"
             tasks_dict[task_id]["progress"] = 1.0
 
-            # 记录任务完成，带简单结果信息
+            # 记录任务完成
             result = {
                 "status": "completed",
                 "returncode": proc.returncode,
                 "message": tasks_dict[task_id]["message"],
             }
             TaskLogger.task_completed(task_id, result)
+            return True
         else:
             tasks_dict[task_id]["status"] = "failed"
-            error_msg = stderr.strip() or "Engine process failed"
+            error_msg = (stderr.strip() if stderr else None) or "Poker process failed"
             tasks_dict[task_id]["message"] = error_msg
-            tasks_dict[task_id]["progress"] = tasks_dict[task_id].get(
-                "progress", 0.0
-            )
+            tasks_dict[task_id]["progress"] = tasks_dict[task_id].get("progress", 0.0)
 
-            # 记录任务失败，包含错误信息
+            # 记录任务失败
             TaskLogger.task_failed(task_id, error_msg)
+            return False
 
     except Exception as e:
         error_text = str(e)
         tasks_dict[task_id]["status"] = "failed"
         tasks_dict[task_id]["message"] = error_text
-
-        # 记录异常失败
         TaskLogger.task_failed(task_id, error_text)
+        return False
+
+
+def run_gkd_task(task_id, pkg, app, tasks_dict):
+    """运行 GKD 任务"""
+    logger.info(f"Task {task_id} - Starting GKD task")
+    TaskLogger.append_task_log(task_id, f"[GKD] Starting GKD task...")
+    
+    tasks_dict[task_id]["message"] = "Running GKD task..."
+    TaskLogger.append_task_log(task_id, f"[GKD] Message: Running GKD task...")
+    
+    try:
+        script_path = GKD_ENGINE_PATH
+        if not script_path or not script_path.exists():
+            raise FileNotFoundError(f"GKD script not found: {script_path}")
+        
+        working_dir = str(GKD_PATH) if GKD_PATH else str(script_path.parent)
+        
+        cmd = [
+            PYTHON_EXEC,
+            str(script_path),
+            task_id,
+        ]
+        
+        cmd_str = ' '.join(cmd)
+        logger.info(f"Task {task_id} - GKD task executing: {cmd_str}")
+        TaskLogger.append_task_log(task_id, f"[GKD] Executing: {cmd_str}")
+        
+        log_path = tasks_dict[task_id].get("log_file")
+        if not log_path:
+            log_path = TaskLogger.create_task_log_file(task_id, pkg, app, cmd_str)
+        
+        with open(log_path, 'a', encoding='utf-8') as log_file:
+            log_file.write(f"\n{'='*60}\n")
+            log_file.write(f"[GKD] Starting at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            log_file.write(f"[GKD] Command: {cmd_str}\n")
+            log_file.write(f"{'='*60}\n")
+            
+            cli_proc = subprocess.Popen(
+                cmd,
+                cwd=working_dir,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+        
+        cli_stdout, cli_stderr = cli_proc.communicate()
+        
+        with open(log_path, 'a', encoding='utf-8') as log_file:
+            log_file.write(f"\n{'='*60}\n")
+            log_file.write(f"[GKD] Completed at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            log_file.write(f"[GKD] Return code: {cli_proc.returncode}\n")
+            log_file.write(f"{'='*60}\n")
+        
+        if cli_proc.returncode == 0:
+            logger.info(f"Task {task_id} - GKD task completed successfully")
+            TaskLogger.append_task_log(task_id, f"[GKD] Completed successfully")
+            tasks_dict[task_id]["message"] = "Finished (Poker + GKD)"
+        else:
+            error_msg = (cli_stderr.strip() if cli_stderr else None) or f"GKD task failed with return code {cli_proc.returncode}"
+            logger.warning(f"Task {task_id} - GKD task failed: {error_msg}")
+            TaskLogger.append_task_log(task_id, f"[GKD] Failed: {error_msg}")
+            tasks_dict[task_id]["message"] = f"Poker completed, but GKD failed: {error_msg}"
+            
+    except Exception as e:
+        error_text = str(e)
+        logger.error(f"Task {task_id} - GKD task exception: {error_text}")
+        TaskLogger.append_task_log(task_id, f"[GKD] Exception: {error_text}")
+        raise

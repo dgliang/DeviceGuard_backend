@@ -85,3 +85,16 @@ async def list_tasks():
     except Exception as e:
         logger.error(f"Error listing tasks: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error listing tasks: {str(e)}")
+
+@app.get("/api/download/{task_id}")
+async def download_task_collected_data(task_id):
+    """
+    下载任务收集的数据
+    """
+    try:
+        logger.info(f"Downloading task collected data - Task ID: {task_id}")
+        data = task_manager.get_task_collected_data(task_id)
+        return data
+    except Exception as e:
+        logger.error(f"Error downloading task collected data - Task ID: {task_id}, Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error downloading task collected data: {str(e)}")

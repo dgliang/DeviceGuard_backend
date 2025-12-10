@@ -2,9 +2,10 @@
 
 1. 后端：[FastAPI](https://fastapi.tiangolo.com/)
 2. Poker：https://github.com/feymanpaper/Poker
-3. Python 版本：3.10
-4. 依赖环境：运行 `pip install -r requirements.txt` 构建[环境](requirements.txt)
-5. 存储环境：[Redis](https://redis.io/)
+3. GKD：https://github.com/feymanpaper/GKD_subscription
+4. Python 版本：3.10，Node 版本：22.14
+5. 依赖环境：运行 `pip install -r requirements.txt` 构建[Python 环境](requirements.txt)
+6. 存储环境：[Redis](https://redis.io/)
 
 ## FastAPI
 
@@ -13,6 +14,10 @@
 ## Poker
 
 Poker 包装成 CLI，后端调用收集数据，详细代码见 [poker_engine.py](poker/poker_engine.py)。
+
+## GKD
+
+GKD 同样包装成 CLI，后端收集数据后进行调用生成消融规则，详细代码见 [run_match_ele.py](gkd_subscription/run_match_ele.py)
 
 ## Redis
 
@@ -47,7 +52,16 @@ Poker 包装成 CLI，后端调用收集数据，详细代码见 [poker_engine.p
    TASK_TTL=86400  # 任务数据保留时间（秒）
    ```
 
-4. 前 3 步在初次运行时配置好。后面再运行后端。使用 FastAPI 直接开启后端服务即可。
+4. 配置 GKD 环境
+
+    ```bash
+    cd gkd_subscription
+    pnmp install
+    ```
+
+    > 注意这里需要提前配置好 `pnmp` 环境。可参考 [GKD_subscription](https://github.com/feymanpaper/GKD_subscription) 进行环境配置
+
+5. **前 4 步在初次运行时配置好**。后面再运行后端。使用 FastAPI 直接开启后端服务即可。
 
     ```bash
     cd backend_api/

@@ -1,11 +1,16 @@
+import tempfile
 import uuid
+import os
 import json
 import threading
 from typing import Dict, Any
+from fastapi.responses import FileResponse
+from pydantic import FilePath
 import redis
 from logger import logger, TaskLogger
 from process_launcher import run_engine_process
 from config import Config
+from file_utils import create_zip_from_folder, cleanup_tmp_files
 
 
 class TaskManager:
@@ -31,6 +36,31 @@ class TaskManager:
             logger.error(f"Error initializing TaskManager: {str(e)}")
             raise
         
+    def get_task_collected_data(self, task_id):
+        collect_data_path = FilePath(Config.COLLECTED_BASE_DIR) / task_id
+        if not collect_data_path.exists():
+            logger.error(f"Task collected data not found for task ID: {task_id}")
+        
+        if not collect_data_path.is_dir():
+            logger.error(f"Task collected data is not a directory for task ID: {task_id}")
+        
+        if not any(collect_data_path.iterdir()):
+            logger.error(f"Task collected data is empty for task ID: {task_id}")
+
+        tmp_dir = tempfile.mkdtemp()
+        zip_filename = f"task_{task_id}.zip"
+        zip_path = os.path.join(tmp_dir, zip_filename)
+
+        try:
+            create_zip_from_folder(str(collect_data_path), zip_path)
+            return FileResponse(
+                path=zip_path,
+                filename=zip_filename,
+                media_type="application/zip",
+                background=cleanup_tmp_files(zip_path, tmp_dir)
+            )
+        except Exception as e:
+            logger.error(f"Error creating zip file for task {task_id}: {str(e)}")
 
     def submit_task(self, pkg, app):
         """提交任务：生成 task_id，初始化任务状态并启动后台线程"""

@@ -8,7 +8,10 @@ class Config:
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
     TASK_TTL = int(os.getenv("TASK_TTL", 86400))  # 24小时
-    
+
+    # 数据收集路径
+    COLLECTED_BASE_DIR = os.getenv("COLLECTED_BASE_DIR", "../poker/collectData")
+
     # 如果需要密码认证
     @classmethod
     def get_redis_url(cls):
