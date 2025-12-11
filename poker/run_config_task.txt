@@ -1,1 +1,1 @@
-com.xunmeng.pinduoduo,拼多多,12,3600,false,loc,3d6b2360-ad00-43a5-a13a-a362f2932b7a
+com.ss.android.article.news,今日头条,12,3600,false,loc,99b624e3-e014-43b9-9a59-e68f1d4c5af5

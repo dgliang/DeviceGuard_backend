@@ -133,3 +133,55 @@ class GitHubService:
             "status": "triggered",
             "actions_url": f"https://github.com/{owner}/{repo_name}/actions",
         }
+    
+    def merge_pull_request(
+        self,
+        pr_number: int,
+        merge_method: str = "merge",
+        commit_title: Optional[str] = None,
+        commit_message: Optional[str] = None,
+    ) -> dict:
+        owner = Config.GITHUB_OWNER
+        repo_name = Config.GITHUB_REPO
+        api_base = Config.GITHUB_API_BASE.rstrip("/")
+        url = f"{api_base}/repos/{owner}/{repo_name}/pulls/{pr_number}/merge"
+
+        payload = {
+            "merge_method": merge_method,
+        }
+        if commit_title:
+            payload["commit_title"] = commit_title
+        if commit_message:
+            payload["commit_message"] = commit_message
+
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {Config.GITHUB_TOKEN}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+
+        try:
+            resp = requests.put(url, json=payload, headers=headers, timeout=15)
+        except requests.RequestException as e:
+            logger.error(f"请求 GitHub 合并 PR 失败: {e}")
+            raise RuntimeError(f"请求 GitHub 合并 PR 失败: {e}") from e
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            logger.info(f"PR #{pr_number} 合并成功: {data.get('sha')}")
+            return {
+                "merged": True,
+                "sha": data.get("sha"),
+                "message": data.get("message"),
+            }
+        elif resp.status_code == 405:
+            # PR 不可合并（例如有冲突、未通过检查等）
+            logger.warning(f"PR #{pr_number} 无法合并: {resp.text}")
+            return {
+                "merged": False,
+                "reason": "not_mergeable",
+                "detail": resp.text,
+            }
+        else:
+            logger.error(f"合并 PR 失败: {resp.status_code} - {resp.text}")
+            raise RuntimeError(f"合并 PR 失败: {resp.status_code} - {resp.text}")

@@ -9,6 +9,7 @@ class Config:
     REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
     TASK_TTL = int(os.getenv("TASK_TTL", 86400))  # 24小时
 
+    # GitHub 配置
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
     GITHUB_OWNER = os.getenv("GITHUB_OWNER", "dgliang")
     GITHUB_REPO = os.getenv("GITHUB_REPO", "GKD_subscription")
@@ -16,9 +17,13 @@ class Config:
     GITHUB_WORKFLOW_FILE = os.getenv("GITHUB_WORKFLOW_FILE", "build_release.yml")
     GITHUB_API_BASE = os.getenv("GITHUB_API_BASE", "https://api.github.com")
     GKD_REPO_PATH = os.getenv("GKD_REPO_PATH", "../GKD_subscription")
+    GITHUB_REMOTE_BRANCH_NAME = os.getenv("GITHUB_REMOTE_BRANCH_NAME", "test/api")
 
     # 数据收集路径
     COLLECTED_BASE_DIR = os.getenv("COLLECTED_BASE_DIR", "../poker/collectData")
+
+    # 调试开关
+    DEBUG_SKIP_POKER = os.getenv("DEBUG_SKIP_POKER", "false").lower() == "true"
 
     # 如果需要密码认证
     @classmethod

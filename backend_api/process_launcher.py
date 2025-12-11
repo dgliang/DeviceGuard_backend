@@ -17,6 +17,10 @@ PYTHON_EXEC = "python3" if sys.platform != "win32" else "python"
 
 def run_engine_process(task_id, pkg, app, tasks_dict):
     """主入口函数：依次运行 Poker 和 GKD 任务"""
+
+    if Config.DEBUG_SKIP_POKER:
+        task_id = "99b624e3-e014-43b9-9a59-e68f1d4c5af5" # 固定任务ID用于调试
+    
     # 更新任务状态
     tasks_dict[task_id]["status"] = "running"
     tasks_dict[task_id]["message"] = "Engine started"
@@ -26,8 +30,15 @@ def run_engine_process(task_id, pkg, app, tasks_dict):
     TaskLogger.task_started(task_id)
 
     try:
-        # 执行 Poker 任务
-        poker_success = run_poker_task(task_id, pkg, app, tasks_dict)
+        # 调试开关：跳过 Poker 直接测试后续流程
+        if Config.DEBUG_SKIP_POKER:
+            logger.info(f"Task {task_id} - DEBUG MODE: Skipping Poker task")
+            TaskLogger.append_task_log(task_id, "[DEBUG] Poker task skipped")
+            poker_success = True  # 模拟成功
+            tasks_dict[task_id]["progress"] = 0.5
+        else:
+            # 执行 Poker 任务
+            poker_success = run_poker_task(task_id, pkg, app, tasks_dict)
         
         # Poker 任务成功后，执行 GKD 任务
         gkd_success = False
@@ -44,7 +55,12 @@ def run_engine_process(task_id, pkg, app, tasks_dict):
             TaskLogger.append_task_log(task_id, f"[GitHub] Starting GitHub task...")
 
             try:
-                github_result = run_github_task(Config.GKD_REPO_PATH, Config.GITHUB_MAIN_BRANCH, "test/api")
+                github_result = run_github_task(
+                    Config.GKD_REPO_PATH,
+                    Config.GITHUB_MAIN_BRANCH,
+                    Config.GITHUB_REMOTE_BRANCH_NAME
+                )
+                
                 if github_result["status"] == "completed":
                     logger.info(f"Task {task_id} - GitHub task completed successfully")
                     TaskLogger.append_task_log(task_id, f"[GitHub] Task completed successfully")
@@ -237,18 +253,42 @@ def run_github_task(repo_path, base_branch, remote_branch):
         branch_info = service.create_branch(remote_branch, base_branch)
 
         # 3) 暂存并提交
+        logger.info("Staging all changes for commit")
         repo.git.add(all=True)
+        logger.info("All changes staged")
         staged_diff = repo.index.diff("HEAD")
+        logger.info(f"Staged changes: {staged_diff}")
         if not staged_diff:
             logger.info("GitHub task skipped: nothing to commit after add")
             return {"status": "skipped", "reason": "nothing to commit"}
 
         commit_msg = f"chore: sync updates for {remote_branch}"
-        repo.index.commit(commit_msg)
-        logger.info(f"Committed changes with message: {commit_msg}")
+        # repo.index.commit(commit_msg)
+        # logger.info(f"Committed changes with message: {commit_msg}")
+        try:
+            repo.index.commit(commit_msg)
+            logger.info(f"Committed changes with message: {commit_msg}")
+        except Exception as e:
+            # if 'UnicodeDecodeError' in str(e):
+            # 如果遇到编码错误，使用 subprocess 直接调用 git
+            logger.warning(f"GitPython commit failed with encoding error, trying subprocess")
+            result = subprocess.run(
+                ['git', 'commit', '-m', commit_msg],
+                capture_output=True,
+                encoding='gbk',  # Windows 中文环境使用 GBK
+                errors='ignore',  # 忽略无法解码的字符
+                cwd=repo_path
+            )
+            if result.returncode != 0:
+                logger.error(f"Git commit failed: {result.stderr}")
+                raise Exception(f"Git commit failed: {result.stderr}")
+            logger.info(f"Committed changes with subprocess: {commit_msg}")
+            # else:
+            #     raise
 
         # 4) 推送分支（若远端不存在会创建）
         push_info = service.push_branch(remote_branch)
+        logger.info(f"Pushed branch {remote_branch} to remote")
 
         # 5) 创建 PR
         pr_title = f"{remote_branch} -> {base_branch}"
@@ -257,9 +297,31 @@ def run_github_task(repo_path, base_branch, remote_branch):
             base_branch=base_branch,
             title=pr_title,
         )
+        logger.info(f"Created PR: {pr_info}")
 
         # 6) 触发主分支构建/发布流水线
         workflow_info = service.trigger_workflow(ref=base_branch)
+        logger.info(f"Triggered workflow on {base_branch}: {workflow_info.get('workflow_id')}")
+
+        # 7) 合并 PR 到主分支
+        pr_number = pr_info.get("number")
+        if pr_number:
+            logger.info(f"Attempting to merge PR #{pr_number}")
+            merge_info = service.merge_pull_request(
+                pr_number=pr_number,
+                merge_method="merge",  # 可选: "merge", "squash", "rebase"
+                commit_title=f"Merge PR #{pr_number}: {pr_title}",
+            )
+            
+            if merge_info.get("merged"):
+                logger.info(f"Successfully merged PR #{pr_number}, SHA: {merge_info.get('sha')}")
+            else:
+                logger.warning(f"PR #{pr_number} could not be merged: {merge_info.get('reason')}")
+                # 可以选择抛出异常或继续
+                # raise Exception(f"Failed to merge PR: {merge_info.get('detail')}")
+        else:
+            logger.warning("No PR number found, skipping merge")
+            merge_info = {"merged": False, "reason": "no_pr_number"}
 
         result = {
             "status": "completed",
@@ -267,6 +329,7 @@ def run_github_task(repo_path, base_branch, remote_branch):
             "push": push_info,
             "pr": pr_info,
             "workflow": workflow_info,
+            "merge": merge_info,
         }
         logger.info(f"GitHub task completed: {result}")
         return result

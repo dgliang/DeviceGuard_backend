@@ -68,3 +68,18 @@ GKD 同样包装成 CLI，后端收集数据后进行调用生成消融规则，
     fastapi dev app_main.py
     # 或者运行 uvicorn app_main:app --reload
     ```
+
+## 弹框消融规则订阅链接
+
+> GKD 原本的订阅链接如下，如果需要稳定的弹框消融规则推荐使用下面的链接
+>
+> ```
+> https://fastly.jsdelivr.net/gh/feymanpaper/GKD_subscription@main/dist/gkd.json5
+> ```
+>
+
+但为了方便后端开发，我们将 **feymanpaper** 的 GKD_subscription 进行了 Fork 后得到了新的订阅链接：
+
+```
+https://fastly.jsdelivr.net/gh/dgliang/GKD_subscription@main/dist/gkd.json5
+```
