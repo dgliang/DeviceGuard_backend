@@ -9,6 +9,14 @@ class Config:
     REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
     TASK_TTL = int(os.getenv("TASK_TTL", 86400))  # 24小时
 
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+    GITHUB_OWNER = os.getenv("GITHUB_OWNER", "dgliang")
+    GITHUB_REPO = os.getenv("GITHUB_REPO", "GKD_subscription")
+    GITHUB_MAIN_BRANCH = os.getenv("GITHUB_MAIN_BRANCH", "main")
+    GITHUB_WORKFLOW_FILE = os.getenv("GITHUB_WORKFLOW_FILE", "build_release.yml")
+    GITHUB_API_BASE = os.getenv("GITHUB_API_BASE", "https://api.github.com")
+    GKD_REPO_PATH = os.getenv("GKD_REPO_PATH", "../GKD_subscription")
+
     # 数据收集路径
     COLLECTED_BASE_DIR = os.getenv("COLLECTED_BASE_DIR", "../poker/collectData")
 
