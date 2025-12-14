@@ -1,11 +1,13 @@
-# 后端 + Redis + Poker
+# DeviceGuard_backend
 
 1. 后端：[FastAPI](https://fastapi.tiangolo.com/)
 2. Poker：https://github.com/feymanpaper/Poker
 3. GKD：https://github.com/feymanpaper/GKD_subscription
-4. Python 版本：3.10，Node 版本：22.14
-5. 依赖环境：运行 `pip install -r requirements.txt` 构建[Python 环境](requirements.txt)
-6. 存储环境：[Redis](https://redis.io/)
+4. ADB：https://developer.android.com/tools/adb?hl=zh-cn
+5. AAPT：https://developer.android.com/tools/aapt2?hl=zh-cn
+6. Python 版本：3.10，Node 版本：22.14
+7. 依赖环境：运行 `pip install -r requirements.txt` 构建[Python 环境](requirements.txt)
+8. 存储环境：[Redis](https://redis.io/)
 
 ## FastAPI
 
@@ -23,11 +25,21 @@ GKD 同样包装成 CLI，后端收集数据后进行调用生成消融规则，
 
 该项目未使用关系数据库进行存储（理论上关系数据库就足够应对），采用了 Redis 简单进行存储。
 
+## ADB + AAPT
+
+项目中使用了 ADB 和 AAPT 工具与 Android 设备进行连接交互，工具代码见 [adb_service.py](backend_api/adb_service.py)
+
 ## 运行
 
 > 此处采用了 [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/main) 构建虚拟环境 `poker` 进行，因此首先运行 `conda activate poker` 激活虚拟环境 
 >
 > 初次运行前请配置好 Redis 环境。
+> 
+> 运行前请确保提前安装好了 ADB 工具和 AAPT 工具。
+> 
+> - ADB 的下载链接：https://blog.csdn.net/x2584179909/article/details/108319973
+> 
+> - AAPT 的下载链接：https://aaptdownload.com/
 
 1. 安装 Docker
 

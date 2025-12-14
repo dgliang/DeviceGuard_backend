@@ -3,7 +3,7 @@ import uuid
 import os
 import json
 import threading
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from fastapi.responses import FileResponse
 from pydantic import FilePath
 import redis
@@ -27,6 +27,7 @@ class TaskManager:
             )
             self.redis_client.ping()
             self.task_prefix = "task:"
+            self.pkg_index_prefix = "pkg_index:"  # 用于包名到task_id的映射
             logger.info(f"TaskManager initialized with Redis at {self.redis_url}")
         except redis.ConnectionError as e:
             logger.error(f"Failed to connect to Redis: {str(e)}")
@@ -62,7 +63,56 @@ class TaskManager:
         except Exception as e:
             logger.error(f"Error creating zip file for task {task_id}: {str(e)}")
 
-    def submit_task(self, pkg, app):
+    def find_task_by_package(self, pkg: str) -> Optional[str]:
+        """
+        通过包名查找对应的 task_id
+        
+        Args:
+            pkg: 应用包名
+            
+        Returns:
+            task_id 或 None（如果不存在）
+        """
+        try:
+            index_key = f"{self.pkg_index_prefix}{pkg}"
+            task_id = self.redis_client.get(index_key)
+            
+            if task_id:
+                # 验证任务是否仍然存在
+                task_data = self._get_task(task_id)
+                if task_data:
+                    logger.debug(f"Found task {task_id} for package {pkg}")
+                    return task_id
+                else:
+                    # 任务已过期，删除索引
+                    self.redis_client.delete(index_key)
+                    logger.warning(f"Task {task_id} expired for package {pkg}, cleaned up index")
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error finding task by package {pkg}: {str(e)}")
+            return None
+
+    def _save_pkg_index(self, pkg: str, task_id: str):
+        """
+        保存包名到 task_id 的映射索引
+        
+        Args:
+            pkg: 应用包名
+            task_id: 任务ID
+        """
+        try:
+            index_key = f"{self.pkg_index_prefix}{pkg}"
+            # 使用与任务相同的 TTL
+            self.redis_client.setex(index_key, self.task_ttl, task_id)
+            logger.debug(f"Saved package index: {pkg} -> {task_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving package index for {pkg}: {str(e)}")
+            return False
+
+    def submit_task(self, pkg, app, timestamp: str = None):
         """提交任务：生成 task_id，初始化任务状态并启动后台线程"""
         try:
             task_id = str(uuid.uuid4())
@@ -75,8 +125,15 @@ class TaskManager:
                 "message": "Waiting...",
                 "log_file": None
             }
+            
+            # 如果提供了时间戳，也保存
+            if timestamp:
+                task_data["timestamp"] = timestamp
 
             self._save_task(task_id, task_data)
+            # 保存包名索引
+            self._save_pkg_index(pkg, task_id)
+            
             # 使用 TaskLogger 记录任务提交
             TaskLogger.task_submitted(task_id, pkg, app)
 
@@ -192,8 +249,18 @@ class TaskManager:
     
     def delete_task(self, task_id: str) -> bool:
         try:
+            # 获取任务数据以便删除包名索引
+            task_data = self._get_task(task_id)
+            
+            # 删除任务数据
             key = f"{self.task_prefix}{task_id}"
             self.redis_client.delete(key)
+            
+            # 删除包名索引
+            if task_data and "pkg" in task_data:
+                index_key = f"{self.pkg_index_prefix}{task_data['pkg']}"
+                self.redis_client.delete(index_key)
+            
             logger.info(f"Task {task_id} deleted from Redis")
             return True
         except Exception as e:
